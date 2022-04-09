@@ -1,6 +1,6 @@
 {
   "name": "@plasmicapp/saturated",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "module": "dist/saturated.esm.js",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",

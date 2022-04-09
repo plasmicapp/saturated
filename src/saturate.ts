@@ -3,6 +3,7 @@ import ReactDOMServer from 'react-dom/server';
 import {
   addToSet,
   assert,
+  isPlainObject,
   isPrimitive,
   mapAny,
   omitKeys,
@@ -12,11 +13,9 @@ import {
 
 interface SaturateOpts {
   /**
-   * Set of known client references; mainly client components, but could also be other things that
-   * cannot be serialized but need to be present on the browser. These must be passed into
-   * serializeSaturated() and deserializeSaturated() as well.
+   * Set of components that you want to force to be client components
    */
-  knownClientRefs?: Set<any>;
+  forceClient?: Set<any>;
 
   /**
    * Set of components that you want to force to be statically inlined, even if it uses hooks,
@@ -25,6 +24,14 @@ interface SaturateOpts {
    * siblings are not inline-able.
    */
   forceStatic?: Set<any>;
+
+  /**
+   * Non-serializable references that you will pass to serialize/deserializeSaturated as well.
+   * forceClient components are already assumed to be in this set, but you can also include references
+   * to global functions etc here, if you're for example passing closures that were created outside
+   * of a component as a prop.
+   */
+  knownClientRefs?: Set<any>;
 
   /**
    * Whenever a client component is detected, it is added to this set. You can use this to
@@ -48,9 +55,17 @@ export function saturate(
   opts: SaturateOpts
 ): React.ReactNode {
   const detectedClientComponents = opts.detectedClientComponents ?? new Set();
-  const res = saturateNode(element, { ...opts, detectedClientComponents });
+  const knownClientRefs = union(
+    opts.forceClient ?? new Set(),
+    opts.knownClientRefs ?? new Set()
+  );
+  const res = saturateNode(element, {
+    ...opts,
+    detectedClientComponents,
+    knownClientRefs,
+  });
   if (detectedClientComponents.size > 0) {
-    const knownRefs = opts.knownClientRefs ?? new Set();
+    const knownRefs = knownClientRefs ?? new Set();
     const unknownRefs = Array.from(detectedClientComponents).filter(
       c => !knownRefs.has(c)
     );
@@ -98,6 +113,19 @@ function saturateNode(
       element: node,
       isStatic: false,
       invalidClientRefs: new Set([node]),
+    };
+  } else if (isPlainObject(node)) {
+    const res = Object.fromEntries(
+      Object.entries(node).map(([key, val]) => [key, saturateNode(val, opts)])
+    );
+    return {
+      element: Object.fromEntries(
+        Object.entries(res).map(([key, val]) => [key, val.element])
+      ),
+      isStatic: Object.values(res).every(r => r.isStatic),
+      invalidClientRefs: union(
+        ...Object.values(res).map(r => r.invalidClientRefs)
+      ),
     };
   } else {
     // assume this is JSON-serializable
@@ -263,12 +291,14 @@ function saturateComponentElement(
     };
   }
 
-  if (opts.knownClientRefs?.has(type)) {
-    // If we already know this component needs to be hydrated, then just
+  if (opts.forceClient?.has(type)) {
+    // If we always want this component to be hydrated, then just
     // return it as-is
     if (!opts.detectedClientComponents?.has(type)) {
       opts.detectedClientComponents?.add(type);
-      console.log(`Encountered known client component: ${componentName(type)}`);
+      console.log(
+        `Encountered forced client component: ${componentName(type)}`
+      );
     }
     return {
       element: React.cloneElement(element, newProps),

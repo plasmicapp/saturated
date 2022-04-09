@@ -50,7 +50,7 @@ export function setDiff<T>(set1: Set<T>, set2?: Set<T>) {
   return res;
 }
 
-export function isPlainObject(thing: any) {
+export function isPlainObject(thing: any): thing is object {
   return (
     thing != null && typeof thing === 'object' && thing.constructor === Object
   );

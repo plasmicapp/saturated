@@ -4,6 +4,10 @@
 
 This is an experimental, TOY JUST FOR FUN library, for transforming a React element tree to one with minimal hydration.
 
+**See [blog post](https://plasmic.app/blog/minimizing-react-hydration-with-saturated) for more details.**
+
+## What it does
+
 When given a React element, the lib will return a new React element that has converted as much of the original tree as possible to static HTML automatically-ish. We call this process, `saturation`.
 
 Our strategy is this: we’re going to try to “render” this initial React element, like `<Page />`, into a tree of base HTML elements as much as possible. Then, starting from the leaves, we check if each base HTML element can be `saturated`. Simply, if it doesn’t have any event handlers (`onClick`, etc), it can be saturated.  
@@ -42,5 +46,3 @@ function Greeting({name}) {
   Hello Pikachu!
 `}} />
 ```
-
-See [blog post](https://plasmic.app/blog) for more details.
